@@ -6,9 +6,8 @@ import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
 import Button from "@material-ui/core/Button";
-import axios from "axios";
-import Cookies from "universal-cookie";
 import { Chip } from "@material-ui/core";
+import productApi from "../../../api/product.api";
 
 const useStyles = makeStyles({
 	root: {
@@ -37,22 +36,11 @@ export default function MyProducts() {
 	const [products, setProducts] = React.useState([]);
 	const classes = useStyles();
 	const history = useHistory();
-	const cookies = new Cookies();
 
 	useEffect(() => {
-		axios
-			.get("http://localhost:8000/products/myproducts")
-			.then((res) => {
-				setProducts(res.data);
-			})
-			.catch((e) => {
-				if (e.response.status === 403) {
-					cookies.remove("token");
-					history.push("/");
-				}
-
-				console.log(e.response.data.message);
-			});
+		productApi.myProducts().then((res) => {
+			setProducts(res.data);
+		});
 		// eslint-disable-next-line
 	}, []);
 
@@ -66,11 +54,12 @@ export default function MyProducts() {
 		};
 	};
 
-	return (
+	return products ? (
 		<div>
-			<Link to="/profile">Back to profile</Link>
+			<Link to="/profile">Back to profile</Link> <br />
+			<Link to="/create">Create product</Link>
 			{products.map((product) => (
-				<Card className={classes.root} variant="outlined" key={product._id}>
+				<Card className={classes.root} variant="outlined" key={product.id}>
 					<CardContent>
 						<Typography className={classes.title} gutterBottom>
 							{product.name}
@@ -81,12 +70,16 @@ export default function MyProducts() {
 						<Typography color="textSecondary" gutterBottom>
 							{product.description}
 						</Typography>
-						<Typography variant="body2" component="p">
+						<Typography variant="body2" component="p" gutterBottom>
 							Price in cents: {product.price}
 						</Typography>
-						{console.log(product)}
-						{product.colors.map((value) => (
+						<Typography variant="body2">
+							Category: {product.Category.name}
+						</Typography>
+
+						{product.Colors.map((value) => (
 							<Chip
+								key={value.id}
 								label={value.name}
 								style={setChipColor(value.hex)}
 								className={classes.chip}
@@ -98,12 +91,14 @@ export default function MyProducts() {
 						</Typography>
 					</CardContent>
 					<CardActions>
-						<Button size="small" id={product._id} onClick={editProduct}>
+						<Button size="small" id={product.id} onClick={editProduct}>
 							Edit product
 						</Button>
 					</CardActions>
 				</Card>
 			))}
 		</div>
+	) : (
+		<></>
 	);
 }

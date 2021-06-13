@@ -9,8 +9,8 @@ import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
-import axios from "axios";
 import { isEmail } from "validator";
+import userApi from "../../api/user.api";
 
 const useStyles = makeStyles((theme) => ({
 	paper: {
@@ -24,7 +24,7 @@ const useStyles = makeStyles((theme) => ({
 		backgroundColor: theme.palette.secondary.main,
 	},
 	form: {
-		width: "100%", // Fix IE 11 issue.
+		width: "100%",
 		marginTop: theme.spacing(3),
 	},
 	submit: {
@@ -105,21 +105,13 @@ export default function SignUp() {
 		}
 
 		if (!isError) {
-			axios
-				.post("http://localhost:8000/users/register", {
-					firstName,
-					lastName,
-					email,
-					password,
-				})
-				.then(() => {
-					history.push("/");
-				})
-				.catch((e) => {
-					if (e.response.status === 409) {
-						setEmailError("This email is already registered!");
-					}
-				});
+			userApi.register({ firstName, lastName, email, password }).then((res) => {
+				if (res === 409) {
+					return setEmailError("This email is already registered!");
+				}
+
+				history.push("/login");
+			});
 		}
 	};
 
@@ -222,7 +214,7 @@ export default function SignUp() {
 					</Button>
 					<Grid container justify="flex-end">
 						<Grid item>
-							<Link to="/" variant="body2">
+							<Link to="/login" variant="body2">
 								Already have an account? Sign in
 							</Link>
 						</Grid>

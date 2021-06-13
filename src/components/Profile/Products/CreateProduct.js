@@ -3,17 +3,19 @@ import Button from "@material-ui/core/Button";
 import CssBaseline from "@material-ui/core/CssBaseline";
 import TextField from "@material-ui/core/TextField";
 import { Link, useHistory } from "react-router-dom";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import Grid from "@material-ui/core/Grid";
 import Typography from "@material-ui/core/Typography";
-import { makeStyles, useTheme } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
-import Input from "@material-ui/core/Input";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
 import Select from "@material-ui/core/Select";
 import Chip from "@material-ui/core/Chip";
-import axios from "axios";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import colorApi from "../../../api/color.api";
+import productApi from "../../../api/product.api";
+import categoryApi from "../../../api/category.api";
 
 const useStyles = makeStyles((theme) => ({
 	paper: {
@@ -38,6 +40,7 @@ const useStyles = makeStyles((theme) => ({
 	},
 	formControl: {
 		minWidth: 130,
+		marginTop: "15px",
 	},
 }));
 
@@ -46,32 +49,42 @@ export default function CreateProduct() {
 	const [description, setDescription] = React.useState("");
 	const [brand, setBrand] = React.useState("");
 	const [price, setPrice] = React.useState("");
+	const [category, setCategory] = React.useState("");
+	const [categoryId, setCategoryId] = React.useState(0);
 	const [colors, setColors] = React.useState([]);
+	const [categories, setCategories] = React.useState([]);
 	const [productColors, setProductColors] = React.useState([]);
 	const [productColorHelper, setProductColorHelper] = React.useState([]);
 	const [nameError, setNameError] = React.useState("");
 	const [descriptionError, setDescriptionError] = React.useState("");
 	const [brandError, setBrandError] = React.useState("");
 	const [priceError, setPriceError] = React.useState("");
-	const [colorError, setColorError] = React.useState(false);
+	const [categoryError, setCategoryError] = React.useState("");
+	const [colorError, setColorError] = React.useState("");
+
 	const theme = useTheme();
-
-	const handleChange = (event) => {
-		setColorError(false);
-		setProductColors(event.target.value);
-	};
 	const history = useHistory();
-
 	const classes = useStyles();
 
+	const handleChange = (e) => {
+		setColorError("");
+		setProductColors(e.target.value);
+	};
+	const handleCategoryChange = (e) => {
+		setCategory(e.target.value);
+		setCategoryError("");
+	};
+
 	useEffect(() => {
-		axios
-			.get("http://localhost:8000/colors/")
+		colorApi
+			.getColors()
+			.then(
+				categoryApi.getCategories().then((res) => {
+					setCategories(res.data);
+				})
+			)
 			.then((res) => {
 				setColors(res.data);
-			})
-			.catch((e) => {
-				console.log(e.response);
 			});
 	}, []);
 
@@ -113,6 +126,10 @@ export default function CreateProduct() {
 		}
 	};
 
+	const onCategoryChange = (id) => {
+		setCategoryId(id);
+	};
+
 	const optionClick = (e) => {
 		const value = e.target.getAttribute("hex");
 		const id = e.target.id;
@@ -143,8 +160,12 @@ export default function CreateProduct() {
 			setPriceError("Price is missing!");
 			isError = true;
 		}
+		if (!category) {
+			setCategoryError("Category is missing!");
+			isError = true;
+		}
 		if (productColors.length === 0) {
-			setColorError(true);
+			setColorError("Colors are missing!");
 			isError = true;
 		}
 
@@ -154,19 +175,17 @@ export default function CreateProduct() {
 				colors.push(item.id);
 			});
 
-			axios
-				.post("http://localhost:8000/products/create", {
+			productApi
+				.createProduct({
 					name,
 					description,
 					brand,
 					price,
+					CategoryId: categoryId,
 					colors,
 				})
 				.then(() => {
 					history.push("/profile");
-				})
-				.catch((e) => {
-					console.log(e.response.data.message);
 				});
 		}
 	};
@@ -183,9 +202,8 @@ export default function CreateProduct() {
 						variant="outlined"
 						margin="normal"
 						fullWidth
-						id="name"
 						label="Product name"
-						name="name"
+						name="productName"
 						autoFocus
 						value={name}
 						onChange={onNameChange}
@@ -196,9 +214,8 @@ export default function CreateProduct() {
 						variant="outlined"
 						margin="normal"
 						fullWidth
-						name="description"
 						label="Product description"
-						id="description"
+						name="description"
 						value={description}
 						onChange={onDescriptionChange}
 						error={!!descriptionError}
@@ -208,9 +225,8 @@ export default function CreateProduct() {
 						variant="outlined"
 						margin="normal"
 						fullWidth
-						name="brand"
 						label="Product brand"
-						id="brand"
+						name="brand"
 						value={brand}
 						onChange={onBrandChange}
 						error={!!brandError}
@@ -220,21 +236,52 @@ export default function CreateProduct() {
 						variant="outlined"
 						margin="normal"
 						fullWidth
-						name="price"
 						label="Product price (in cents)"
-						id="price"
+						name="price"
 						value={price}
 						onChange={onPriceChange}
 						error={!!priceError}
 						helperText={priceError}
 					/>
-					<FormControl className={classes.formControl} error={!!colorError}>
-						<InputLabel>Product colors</InputLabel>
+					<FormControl
+						fullWidth
+						variant="outlined"
+						className={classes.formControl}
+						error={!!categoryError}
+					>
+						<InputLabel id="category-label">Product category</InputLabel>
+						<Select
+							labelId="category-label"
+							id="category"
+							value={category}
+							onChange={handleCategoryChange}
+							label="Product category"
+						>
+							{categories.map((item) => (
+								<MenuItem
+									value={item.name}
+									key={item.id}
+									onClick={() => onCategoryChange(item.id)}
+								>
+									{item.name}
+								</MenuItem>
+							))}
+						</Select>
+						<FormHelperText>{categoryError}</FormHelperText>
+					</FormControl>
+					<FormControl
+						fullWidth
+						variant="outlined"
+						className={classes.formControl}
+						error={!!colorError}
+					>
+						<InputLabel id="color-label">Product colors</InputLabel>
 						<Select
 							multiple
+							labelId="color-label"
+							label="Product colors"
 							value={productColors}
 							onChange={handleChange}
-							input={<Input id="select-multiple-chip" />}
 							renderValue={(selected) => (
 								<div className={classes.chips}>
 									{selected.map((value, index) => (
@@ -250,8 +297,8 @@ export default function CreateProduct() {
 						>
 							{colors.map((color) => (
 								<MenuItem
-									key={color._id}
-									id={color._id}
+									key={color.id}
+									id={color.id}
 									value={color.name}
 									hex={color.hex}
 									style={selectColorStyle(color.name, productColors, theme)}
@@ -261,6 +308,7 @@ export default function CreateProduct() {
 								</MenuItem>
 							))}
 						</Select>
+						<FormHelperText>{colorError}</FormHelperText>
 					</FormControl>
 					<Button
 						type="submit"
@@ -273,8 +321,8 @@ export default function CreateProduct() {
 					</Button>
 					<Grid container>
 						<Grid item>
-							<Link to="/profile" variant="body2">
-								{"Back to profile"}
+							<Link to="/myproducts" variant="body2">
+								{"Back to my products"}
 							</Link>
 						</Grid>
 					</Grid>

@@ -10,9 +10,7 @@ import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import { isEmail } from "validator";
-import axios from "axios";
-import Cookies from "universal-cookie";
-import axiosSetup from "../axios.setup";
+import userApi from "../../api/user.api";
 
 const useStyles = makeStyles((theme) => ({
 	paper: {
@@ -40,21 +38,14 @@ export default function SignIn() {
 	const [emailError, setEmailError] = React.useState("");
 	const [passwordError, setPasswordError] = React.useState("");
 	const history = useHistory();
-	const cookies = new Cookies();
 	const classes = useStyles();
 
 	useEffect(() => {
-		if (!!cookies.get("token")) {
-			axios
-				.get("http://localhost:8000/users/profile")
-				.then((res) => {
-					console.log("You are already logged in!");
-					history.push("/profile");
-				})
-				.catch((e) => {
-					console.log("error: ", e.response);
-					cookies.remove("token");
-				});
+		if (!!localStorage.getItem("token")) {
+			userApi.getProfile().then(() => {
+				console.log("You are already logged in!");
+				history.push("/profile");
+			});
 		} // eslint-disable-next-line
 	}, []);
 
@@ -88,21 +79,24 @@ export default function SignIn() {
 		}
 
 		if (!isError) {
-			axios
-				.post("http://localhost:8000/users/login", {
-					email,
-					password,
-				})
-				.then((res) => {
-					cookies.set("token", res.data);
-					axiosSetup();
-					history.push("/profile");
-				})
-				.catch((e) => {
-					if (e.response.status === 404) setEmailError("Email not registered!");
-					if (e.response.status === 403) setPasswordError("Wrong password!");
-					console.log(e.response.data.message);
-				});
+			userApi.login({ email, password }).then((res) => {
+				if (res === 404) return setEmailError("Email not registered!");
+				if (res === 403) return setPasswordError("Wrong password!");
+
+				const cart = JSON.parse(localStorage.getItem("guestCart"));
+				let empty = true;
+				if (cart) {
+					for (let key in cart) {
+						empty = false;
+					}
+				}
+
+				if (!empty) {
+				}
+
+				localStorage.setItem("token", res);
+				history.push("/profile");
+			});
 		}
 	};
 
@@ -156,8 +150,8 @@ export default function SignIn() {
 					</Button>
 					<Grid container>
 						<Grid item xs>
-							<Link to="#" variant="body2">
-								Forgot password?
+							<Link to="/" variant="body2">
+								Back to Dashboard
 							</Link>
 						</Grid>
 						<Grid item>

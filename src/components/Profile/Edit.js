@@ -8,7 +8,7 @@ import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import { isEmail } from "validator";
-import axios from "axios";
+import userApi from "../../api/user.api";
 
 const useStyles = makeStyles((theme) => ({
 	paper: {
@@ -43,17 +43,11 @@ export default function Profile() {
 	const history = useHistory();
 
 	useEffect(() => {
-		axios
-			.get("http://localhost:8000/users/profile")
-			.then((res) => {
-				setFirstName(res.data.firstName);
-				setLastName(res.data.lastName);
-				setEmail(res.data.email);
-			})
-			.catch((e) => {
-				console.log(e.response);
-				if (e.response.status === 403) history.push("/");
-			}); // eslint-disable-next-line
+		userApi.getProfile().then((res) => {
+			setFirstName(res.data.firstName);
+			setLastName(res.data.lastName);
+			setEmail(res.data.email);
+		}); // eslint-disable-next-line
 	}, []);
 
 	const onFirstNameChange = (e) => {
@@ -128,8 +122,8 @@ export default function Profile() {
 		}
 
 		if (!error) {
-			axios
-				.patch("http://localhost:8000/users/edit", {
+			userApi
+				.edit({
 					firstName,
 					lastName,
 					email,
@@ -137,11 +131,8 @@ export default function Profile() {
 					password,
 				})
 				.then((res) => {
+					if (res === 403) return setOldPasswordError("Wrong password!");
 					history.push("/profile");
-				})
-				.catch((e) => {
-					if (e.response.status === 403) setOldPasswordError("Wrong password!");
-					console.log(e.response);
 				});
 		}
 	};

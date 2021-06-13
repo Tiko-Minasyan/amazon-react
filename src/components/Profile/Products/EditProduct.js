@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
@@ -13,16 +13,15 @@ import DialogContentText from "@material-ui/core/DialogContentText";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Checkbox from "@material-ui/core/Checkbox";
-import axios from "axios";
-import {
-	Chip,
-	FormControl,
-	Input,
-	InputLabel,
-	MenuItem,
-	Select,
-	useTheme,
-} from "@material-ui/core";
+import FormControl from "@material-ui/core/FormControl";
+import Select from "@material-ui/core/Select";
+import Chip from "@material-ui/core/Chip";
+import InputLabel from "@material-ui/core/InputLabel";
+import MenuItem from "@material-ui/core/MenuItem";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import productApi from "../../../api/product.api";
+import colorApi from "../../../api/color.api";
+import categoryApi from "../../../api/category.api";
 
 const useStyles = makeStyles((theme) => ({
 	root: {
@@ -52,6 +51,7 @@ const useStyles = makeStyles((theme) => ({
 	},
 	formControl: {
 		minWidth: 130,
+		marginTop: "15px",
 	},
 	chips: {
 		display: "flex",
@@ -62,13 +62,16 @@ const useStyles = makeStyles((theme) => ({
 	},
 }));
 
-export default function EditProduct(props) {
+export default function EditProduct() {
 	const classes = useStyles();
 	const [name, setName] = React.useState("");
 	const [description, setDescription] = React.useState("");
 	const [brand, setBrand] = React.useState("");
 	const [price, setPrice] = React.useState("");
+	const [category, setCategory] = React.useState("");
+	const [categoryId, setCategoryId] = React.useState(0);
 	const [colors, setColors] = React.useState([]);
+	const [categories, setCategories] = React.useState([]);
 	const [productColors, setProductColors] = React.useState([]);
 	const [productColorHelper, setProductColorHelper] = React.useState([]);
 	const [published, setPublished] = React.useState(false);
@@ -76,24 +79,26 @@ export default function EditProduct(props) {
 	const [descriptionError, setDescriptionError] = React.useState("");
 	const [brandError, setBrandError] = React.useState("");
 	const [priceError, setPriceError] = React.useState("");
-	const [colorError, setColorError] = React.useState(false);
+	const [categoryError, setCategoryError] = React.useState("");
+	const [colorError, setColorError] = React.useState("");
 	const [open, setOpen] = React.useState(false);
+
 	const history = useHistory();
 	const theme = useTheme();
 	let { id } = useParams();
 
 	useEffect(() => {
-		axios
-			.get("http://localhost:8000/products/" + id)
+		productApi
+			.getProduct(id)
 			.then(
-				axios
-					.get("http://localhost:8000/colors/")
-					.then((res) => {
-						setColors(res.data);
-					})
-					.catch((e) => {
-						console.log(e.response);
-					})
+				colorApi.getColors().then((res) => {
+					setColors(res.data);
+				})
+			)
+			.then(
+				categoryApi.getCategories().then((res) => {
+					setCategories(res.data);
+				})
 			)
 			.then((res) => {
 				setName(res.data.name);
@@ -101,26 +106,22 @@ export default function EditProduct(props) {
 				setBrand(res.data.brand);
 				setPrice(res.data.price);
 				setPublished(res.data.published);
+				setCategory(res.data.Category.name);
+				setCategoryId(res.data.CategoryId);
 
 				let colorsNameArr = [];
 				let colorsHelperArr = [];
-				res.data.colors.forEach((color) => {
+				res.data.Colors.forEach((color) => {
 					colorsNameArr.push(color.name);
 					colorsHelperArr.push({
-						id: color._id,
+						id: color.id,
 						value: color.hex,
 					});
 				});
 				setProductColorHelper(colorsHelperArr);
 				setProductColors(colorsNameArr);
-			})
-			.catch((e) => {
-				console.log(e);
-				if (e.response.status === 403) history.push("/");
-				else console.log(e.response.data.message);
 			});
-		// eslint-disable-next-line
-	}, []);
+	}, [id]);
 
 	function selectColorStyle(name, productColors, theme) {
 		return {
@@ -137,6 +138,11 @@ export default function EditProduct(props) {
 
 	const handleChange = (event) => {
 		setPublished(event.target.checked);
+	};
+
+	const handleCategoryChange = (e) => {
+		setCategory(e.target.value);
+		setCategoryError("");
 	};
 
 	const onNameChange = (e) => {
@@ -165,8 +171,12 @@ export default function EditProduct(props) {
 		}
 	};
 
+	const onCategoryChange = (id) => {
+		setCategoryId(id);
+	};
+
 	const handleColorChange = (event) => {
-		setColorError(false);
+		setColorError("");
 		setProductColors(event.target.value);
 	};
 
@@ -200,33 +210,29 @@ export default function EditProduct(props) {
 			error = true;
 		}
 		if (productColors.length === 0) {
-			setColorError(true);
+			setColorError("Colors are missing!");
 			error = true;
 		}
 
 		if (!error) {
 			const colors = [];
 			productColorHelper.forEach((item) => {
-				colors.push(item.id);
+				colors.push(parseInt(item.id));
 			});
-			console.log(productColorHelper);
 
-			axios
-				.patch("http://localhost:8000/products/" + id, {
+			productApi
+				.editProduct(id, {
+					id,
 					name,
 					description,
 					brand,
 					price,
-					_id: id,
+					CategoryId: categoryId,
 					published,
 					colors,
 				})
 				.then(() => {
 					history.push("/myproducts");
-				})
-				.catch((e) => {
-					console.log(e.response);
-					if (e.response.status === 403) history.push("/");
 				});
 		}
 	};
@@ -236,14 +242,9 @@ export default function EditProduct(props) {
 	};
 
 	const deleteProduct = () => {
-		axios
-			.delete("http://localhost:8000/products/" + id)
-			.then(() => {
-				history.push("/myproducts");
-			})
-			.catch((e) => {
-				console.log(e.response);
-			});
+		productApi.deleteProduct(id).then(() => {
+			history.push("/myproducts");
+		});
 	};
 
 	const handleClickOpen = () => {
@@ -258,44 +259,89 @@ export default function EditProduct(props) {
 		<Card className={classes.root} variant="outlined">
 			<CardContent>
 				<TextField
+					variant="outlined"
+					margin="normal"
 					className={classes.field}
 					label="Product name"
+					name="productName"
+					autoFocus
 					value={name}
 					onChange={onNameChange}
 					error={!!nameError}
 					helperText={nameError}
 				/>
 				<TextField
-					className={classes.field}
-					label="Product brand"
-					value={brand}
-					onChange={onBrandChange}
-					error={!!brandError}
-					helperText={brandError}
-				/>
-				<TextField
+					variant="outlined"
+					margin="normal"
 					className={classes.field}
 					label="Product description"
+					name="description"
 					value={description}
 					onChange={onDescriptionChange}
 					error={!!descriptionError}
 					helperText={descriptionError}
 				/>
 				<TextField
+					variant="outlined"
+					margin="normal"
+					className={classes.field}
+					label="Product brand"
+					name="brand"
+					value={brand}
+					onChange={onBrandChange}
+					error={!!brandError}
+					helperText={brandError}
+				/>
+				<TextField
+					variant="outlined"
+					margin="normal"
 					className={classes.field}
 					label="Price in cents"
+					name="price"
 					value={price}
 					onChange={onPriceChange}
 					error={!!priceError}
 					helperText={priceError}
 				/>
-				<FormControl className={classes.formControl} error={!!colorError}>
-					<InputLabel>Product colors</InputLabel>
+				<FormControl
+					fullWidth
+					variant="outlined"
+					className={classes.formControl}
+					error={!!categoryError}
+				>
+					<InputLabel id="category-label">Product category</InputLabel>
+					<Select
+						labelId="category-label"
+						id="category"
+						value={category}
+						onChange={handleCategoryChange}
+						label="Product category"
+					>
+						{categories.map((item) => (
+							<MenuItem
+								value={item.name}
+								key={item.id}
+								onClick={() => onCategoryChange(item.id)}
+							>
+								{item.name}
+							</MenuItem>
+						))}
+					</Select>
+					<FormHelperText>{categoryError}</FormHelperText>
+				</FormControl>
+				<FormControl
+					fullWidth
+					variant="outlined"
+					className={classes.formControl}
+					error={!!colorError}
+				>
+					<InputLabel id="color-label">Product colors</InputLabel>
 					<Select
 						multiple
 						value={productColors}
 						onChange={handleColorChange}
-						input={<Input id="select-multiple-chip" />}
+						labelId="color-label"
+						label="Product colors"
 						renderValue={(selected) => (
 							<div className={classes.chips}>
 								{selected.map((value, index) => (
@@ -311,8 +357,8 @@ export default function EditProduct(props) {
 					>
 						{colors.map((color) => (
 							<MenuItem
-								key={color._id}
-								id={color._id}
+								key={color.id}
+								id={color.id}
 								value={color.name}
 								hex={color.hex}
 								style={selectColorStyle(color.name, productColors, theme)}
@@ -322,8 +368,8 @@ export default function EditProduct(props) {
 							</MenuItem>
 						))}
 					</Select>
+					<FormHelperText>{colorError}</FormHelperText>
 				</FormControl>
-				<br />
 				<FormControlLabel
 					labelPlacement="start"
 					className={classes.publish}
