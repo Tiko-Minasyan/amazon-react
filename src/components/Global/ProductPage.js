@@ -7,8 +7,10 @@ import CardMedia from "@material-ui/core/CardMedia";
 import Button from "@material-ui/core/Button";
 import Typography from "@material-ui/core/Typography";
 import Chip from "@material-ui/core/Chip";
+import Carousel from "react-material-ui-carousel";
 import productApi from "../../api/product.api";
 import { useHistory, useParams } from "react-router";
+import cartApi from "../../api/cart.api";
 
 const useStyles = makeStyles({
 	container: {
@@ -33,11 +35,13 @@ const useStyles = makeStyles({
 	},
 	cardImg: {
 		width: 345,
+		height: 230,
 	},
 });
 
 export default function ProductPage({ addCartNum }) {
 	const [product, setProduct] = React.useState({});
+	const [images, setImages] = React.useState([]);
 	const [colors, setColors] = React.useState([]);
 	const [colorId, setColorId] = React.useState(0);
 
@@ -55,6 +59,10 @@ export default function ProductPage({ addCartNum }) {
 				} else item.selected = false;
 			});
 			setColors(res.data.Colors);
+		});
+
+		productApi.getProductImages(id).then((res) => {
+			setImages(res.data);
 		});
 	}, [id]);
 
@@ -81,28 +89,80 @@ export default function ProductPage({ addCartNum }) {
 		if (!localStorage.token) {
 			let cart = JSON.parse(localStorage.getItem("guestCart"));
 			if (!cart) cart = {};
-			if (cart[id]) cart[id].count += 1;
-			else {
+
+			if (cart[id]) {
+				cart[id].count += 1;
+			} else {
 				cart[id] = {};
 				cart[id].count = 1;
 				cart[id].color = colorId;
 			}
+
 			localStorage.guestCart = JSON.stringify(cart);
+			history.push("/cart");
+		} else {
+			cartApi.getCart().then((res) => {
+				const cart = res.data;
+				let existing = false;
+
+				for (let item of cart) {
+					// eslint-disable-next-line
+					if (item.Product.id == id) {
+						existing = true;
+						cartApi.update(item.Product.id, 1).then(() => {
+							history.push("/cart");
+						});
+					}
+				}
+
+				if (!existing) {
+					cartApi.addCart({ id, colorId }).then(() => {
+						history.push("/cart");
+					});
+				}
+			});
 		}
 
-		history.push("/cart");
+		// history.push("/cart");
 	};
 
 	return product.name ? (
 		<div className={classes.container}>
 			<Card className={classes.root} key={product.id}>
-				<CardMedia
-					component="img"
-					alt="Product image could not be loaded"
-					height="200"
-					image="http://beepeers.com/assets/images/commerces/default-image.jpg"
-					className={classes.cardImg}
-				/>
+				{images.length === 0 ? (
+					<CardMedia
+						component="img"
+						alt="Product image could not be loaded"
+						height="200"
+						image={
+							images.length > 0
+								? `http://localhost:8000/${images[0].name}`
+								: "http://beepeers.com/assets/images/commerces/default-image.jpg"
+						}
+						className={classes.cardImg}
+					/>
+				) : (
+					<Carousel
+						autoPlay={false}
+						animation="slide"
+						timeout={{ enter: 200, exit: 200 }}
+						navButtonsWrapperProps={{
+							style: {
+								top: "-20px",
+							},
+						}}
+					>
+						{images.map((item, index) => (
+							<div key={item + index}>
+								<img
+									className={classes.cardImg}
+									src={`http://localhost:8000/${item.name}`}
+									alt=""
+								/>
+							</div>
+						))}
+					</Carousel>
+				)}
 				<CardContent>
 					<Typography gutterBottom variant="h5" component="h2">
 						{product.name}

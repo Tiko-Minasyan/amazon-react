@@ -11,6 +11,7 @@ import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import { isEmail } from "validator";
 import userApi from "../../api/user.api";
+import cartApi from "../../api/cart.api";
 
 const useStyles = makeStyles((theme) => ({
 	paper: {
@@ -87,11 +88,14 @@ export default function SignIn() {
 				let empty = true;
 				if (cart) {
 					for (let key in cart) {
-						empty = false;
+						if (key) empty = false;
 					}
 				}
 
 				if (!empty) {
+					cartApi.addCarts(cart).then(() => {
+						localStorage.removeItem("guestCart");
+					});
 				}
 
 				localStorage.setItem("token", res);

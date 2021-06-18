@@ -14,7 +14,7 @@ const useStyles = makeStyles({
 		flexWrap: "wrap",
 	},
 	root: {
-		maxWidth: 345,
+		maxWidth: 315,
 		minWidth: 300,
 		margin: 10,
 	},
@@ -24,19 +24,43 @@ const useStyles = makeStyles({
 	chip: {
 		margin: 2,
 	},
+	img: {
+		width: 315,
+	},
 });
 
-export default function Dashboard({ addCartNum }) {
+export default function Dashboard() {
 	const [products, setProducts] = React.useState([]);
+	const [imageRendered, setImageRendered] = React.useState(false);
 
 	const classes = useStyles();
 	const history = useHistory();
 
 	useEffect(() => {
+		setImageRendered(false);
 		productApi.getProducts().then((res) => {
 			setProducts(res.data);
 		});
 	}, []);
+
+	useEffect(() => {
+		if (products.length === 0) return;
+		else if (!imageRendered) {
+			productApi.getDefaultImages().then((res) => {
+				const images = res.data;
+				const newProducts = [...products];
+				newProducts.forEach((product) => {
+					for (let image of images) {
+						if (product.id === image.ProductId) {
+							product["defaultImg"] = image.name;
+						}
+					}
+				});
+				setProducts(newProducts);
+				setImageRendered(true);
+			});
+		} // eslint-disable-next-line
+	}, [products]);
 
 	const productPage = (id) => {
 		history.push("/products/" + id);
@@ -51,7 +75,12 @@ export default function Dashboard({ addCartNum }) {
 							component="img"
 							alt="Product image could not be loaded"
 							height="200"
-							image="http://beepeers.com/assets/images/commerces/default-image.jpg"
+							className={classes.img}
+							image={
+								product.defaultImg
+									? `http://localhost:8000/${product.defaultImg}`
+									: "http://beepeers.com/assets/images/commerces/default-image.jpg"
+							}
 						/>
 						<CardContent>
 							<Typography gutterBottom variant="h5" component="h2">

@@ -10,10 +10,12 @@ import Address from "./components/Profile/Addresses/Address";
 import AddAddress from "./components/Profile/Addresses/AddAddress";
 import EditAddress from "./components/Profile/Addresses/EditAddress";
 import EditProduct from "./components/Profile/Products/EditProduct";
+import MyOrders from "./components/Profile/MyOrders";
 import Dashboard from "./components/Global/Dashboard";
 import Search from "./components/Global/Search";
 import Cart from "./components/Global/Cart";
 import ProductPage from "./components/Global/ProductPage";
+import Checkout from "./components/Checkout";
 
 function App({ cartNum, addCartNum }) {
 	return (
@@ -29,6 +31,10 @@ function App({ cartNum, addCartNum }) {
 			</Route>
 			<Route path="/products/:id">
 				<ProductPage addCartNum={addCartNum} />
+			</Route>
+
+			<Route path="/checkout">
+				<Checkout addCartNum={addCartNum} />
 			</Route>
 
 			<Route path="/profile">
@@ -54,6 +60,9 @@ function App({ cartNum, addCartNum }) {
 			</Route>
 			<Route path="/addAddress">
 				<AddAddress />
+			</Route>
+			<Route path="/myorders">
+				<MyOrders />
 			</Route>
 
 			<Route path="/">

@@ -14,7 +14,7 @@ const useStyles = makeStyles({
 		flexWrap: "wrap",
 	},
 	root: {
-		maxWidth: 345,
+		maxWidth: 315,
 		minWidth: 300,
 		margin: 10,
 	},
@@ -24,16 +24,21 @@ const useStyles = makeStyles({
 	chip: {
 		margin: 2,
 	},
+	img: {
+		// objectPosition: "",
+	},
 });
 
-export default function Search({ addCartNum }) {
+export default function Search() {
 	const [products, setProducts] = React.useState([]);
+	const [imageRendered, setImageRendered] = React.useState(false);
 
 	const classes = useStyles();
 	const history = useHistory();
 	const query = new URLSearchParams(useLocation().search);
 
 	useEffect(() => {
+		setImageRendered(false);
 		const searchData = {};
 		if (query.get("category")) searchData["category"] = query.get("category");
 		if (query.get("text")) searchData["text"] = query.get("text");
@@ -42,6 +47,25 @@ export default function Search({ addCartNum }) {
 			setProducts(res.data);
 		}); // eslint-disable-next-line
 	}, [query.get("text"), query.get("category")]);
+
+	useEffect(() => {
+		if (products.length === 0) return;
+		else if (!imageRendered) {
+			productApi.getDefaultImages().then((res) => {
+				const images = res.data;
+				const newProducts = [...products];
+				newProducts.forEach((product) => {
+					for (let image of images) {
+						if (product.id === image.ProductId) {
+							product["defaultImg"] = image.name;
+						}
+					}
+				});
+				setProducts(newProducts);
+				setImageRendered(true);
+			});
+		} // eslint-disable-next-line
+	}, [products]);
 
 	const productPage = (id) => {
 		history.push("/products/" + id);
@@ -56,7 +80,12 @@ export default function Search({ addCartNum }) {
 							component="img"
 							alt="Product image could not be loaded"
 							height="200"
-							image="http://beepeers.com/assets/images/commerces/default-image.jpg"
+							className={classes.img}
+							image={
+								product.defaultImg
+									? `http://localhost:8000/${product.defaultImg}`
+									: "http://beepeers.com/assets/images/commerces/default-image.jpg"
+							}
 						/>
 						<CardContent>
 							<Typography gutterBottom variant="h5" component="h2">

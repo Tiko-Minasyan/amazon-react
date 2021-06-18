@@ -183,6 +183,10 @@ export default function Header({ cartNum }) {
 		history.push("/addresses");
 	};
 
+	const orders = () => {
+		history.push("/myorders");
+	};
+
 	const profile = () => {
 		handleClose();
 		history.push("/profile");
@@ -239,6 +243,9 @@ export default function Header({ cartNum }) {
 								</ListItem>
 								<ListItem button onClick={addresses}>
 									<ListItemText primary="My Addresses" />
+								</ListItem>
+								<ListItem button onClick={orders}>
+									<ListItemText primary="My Orders" />
 								</ListItem>
 							</List>
 						</div>

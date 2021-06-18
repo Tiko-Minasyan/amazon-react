@@ -42,6 +42,9 @@ const useStyles = makeStyles((theme) => ({
 		minWidth: 130,
 		marginTop: "15px",
 	},
+	imgBtn: {
+		marginTop: "15px",
+	},
 }));
 
 export default function CreateProduct() {
@@ -55,6 +58,7 @@ export default function CreateProduct() {
 	const [categories, setCategories] = React.useState([]);
 	const [productColors, setProductColors] = React.useState([]);
 	const [productColorHelper, setProductColorHelper] = React.useState([]);
+	const [images, setImages] = React.useState("");
 	const [nameError, setNameError] = React.useState("");
 	const [descriptionError, setDescriptionError] = React.useState("");
 	const [brandError, setBrandError] = React.useState("");
@@ -140,6 +144,14 @@ export default function CreateProduct() {
 		else setProductColorHelper([...productColorHelper, { id, value }]);
 	};
 
+	const selectImage = (e) => {
+		const files = [];
+		for (let i = 0; i < e.target.files.length; i++) {
+			files.push(e.target.files[i]);
+		}
+		setImages(files);
+	};
+
 	const formSubmit = (e) => {
 		e.preventDefault();
 		let isError = false;
@@ -184,8 +196,18 @@ export default function CreateProduct() {
 					CategoryId: categoryId,
 					colors,
 				})
-				.then(() => {
-					history.push("/profile");
+				.then((res) => {
+					if (!!images) {
+						const formData = new FormData();
+
+						for (let i = 0; i < images.length; i++) {
+							formData.append("files", images[i]);
+						}
+
+						productApi.addImage(formData, res.data.id);
+					}
+
+					history.push("/myproducts");
 				});
 		}
 	};
@@ -310,6 +332,21 @@ export default function CreateProduct() {
 						</Select>
 						<FormHelperText>{colorError}</FormHelperText>
 					</FormControl>
+					<Button
+						variant="contained"
+						component="label"
+						className={classes.imgBtn}
+						fullWidth
+					>
+						Upload Picture
+						<input
+							type="file"
+							multiple
+							id="file"
+							hidden
+							onChange={selectImage}
+						/>
+					</Button>
 					<Button
 						type="submit"
 						fullWidth

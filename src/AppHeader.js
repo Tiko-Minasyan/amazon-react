@@ -8,6 +8,7 @@ import Register from "./components/Registration/Register";
 import App from "./App";
 
 import Header from "./components/Global/Header";
+import cartApi from "./api/cart.api";
 
 function AppHeader() {
 	setAuthToken();
@@ -27,6 +28,15 @@ function AppHeader() {
 				}
 				setCartNum(num);
 			}
+		} else {
+			cartApi.getCart().then((res) => {
+				const cart = res.data;
+				let num = 0;
+				for (let item of cart) {
+					num += item.count;
+				}
+				setCartNum(num);
+			});
 		}
 	}, []);
 

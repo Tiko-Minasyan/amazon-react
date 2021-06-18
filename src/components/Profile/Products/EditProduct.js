@@ -26,8 +26,10 @@ import categoryApi from "../../../api/category.api";
 const useStyles = makeStyles((theme) => ({
 	root: {
 		minWidth: 275,
-		width: 400,
+		width: 800,
 		margin: "auto",
+		marginTop: 10,
+		position: "relative",
 	},
 	title: {
 		fontWeight: "bold",
@@ -35,7 +37,19 @@ const useStyles = makeStyles((theme) => ({
 	},
 	field: {
 		marginBottom: 10,
-		width: "100%",
+		width: "48%",
+
+		"&:nth-of-type(even)": {
+			marginLeft: "4%",
+		},
+
+		"&:nth-of-type(5)": {
+			marginTop: "15px",
+		},
+
+		"&:nth-of-type(6)": {
+			marginTop: "7px",
+		},
 	},
 	pos: {
 		marginBottom: 12,
@@ -47,11 +61,9 @@ const useStyles = makeStyles((theme) => ({
 		color: theme.palette.secondary.dark,
 	},
 	publish: {
-		margin: 0,
-	},
-	formControl: {
-		minWidth: 130,
-		marginTop: "15px",
+		position: "absolute",
+		bottom: 5,
+		right: 20,
 	},
 	chips: {
 		display: "flex",
@@ -59,6 +71,45 @@ const useStyles = makeStyles((theme) => ({
 	},
 	chip: {
 		margin: 2,
+	},
+	imgDiv: {
+		width: "48%",
+		height: "250px",
+		marginBottom: 10,
+		display: "inline-block",
+		position: "relative",
+
+		"&:nth-of-type(even)": {
+			marginLeft: "4%",
+		},
+	},
+	img: {
+		width: "100%",
+		height: "100%",
+	},
+	default: {
+		position: "absolute",
+		fontWeight: "bold",
+		marginLeft: 10,
+		background: "rgba(220, 220, 220, 0.3)",
+		padding: 10,
+	},
+	imgBtn: {
+		position: "absolute",
+		bottom: 0,
+		width: "100%",
+		display: "flex",
+		justifyContent: "space-between",
+		opacity: 0,
+
+		"& button": {
+			background: "rgba(220, 220, 220, 0.7)",
+			margin: 5,
+		},
+	},
+	imageError: {
+		color: "red",
+		marginLeft: 10,
 	},
 }));
 
@@ -82,6 +133,8 @@ export default function EditProduct() {
 	const [categoryError, setCategoryError] = React.useState("");
 	const [colorError, setColorError] = React.useState("");
 	const [open, setOpen] = React.useState(false);
+	const [images, setImages] = React.useState([]);
+	const [imageError, setImageError] = React.useState("");
 
 	const history = useHistory();
 	const theme = useTheme();
@@ -121,7 +174,15 @@ export default function EditProduct() {
 				setProductColorHelper(colorsHelperArr);
 				setProductColors(colorsNameArr);
 			});
-	}, [id]);
+
+		getImages(); // eslint-disable-next-line
+	}, []);
+
+	const getImages = () => {
+		productApi.getProductImages(id).then((res) => {
+			setImages(res.data);
+		});
+	};
 
 	function selectColorStyle(name, productColors, theme) {
 		return {
@@ -255,6 +316,41 @@ export default function EditProduct() {
 		setOpen(false);
 	};
 
+	const visible = (id) => {
+		document.getElementById("img" + id).style.opacity = 1;
+	};
+
+	const invisible = (id) => {
+		document.getElementById("img" + id).style.opacity = 0;
+	};
+
+	const makeDefault = (imgId) => {
+		productApi.makeDefaultImg(id, imgId).then(() => {
+			setImageError("");
+			getImages();
+		});
+	};
+
+	const deleteImg = (imgId) => {
+		productApi.deleteImg(id, imgId).then(() => {
+			setImageError("");
+			getImages();
+		});
+	};
+
+	const addImage = (e) => {
+		const formData = new FormData();
+		for (let i = 0; i < e.target.files.length; i++) {
+			formData.append("files", e.target.files[i]);
+		}
+
+		productApi.addImage(formData, id).then((res) => {
+			if (res === 403)
+				return setImageError("Product cannot have more than 9 images!");
+			getImages();
+		});
+	};
+
 	return (
 		<Card className={classes.root} variant="outlined">
 			<CardContent>
@@ -304,9 +400,8 @@ export default function EditProduct() {
 					helperText={priceError}
 				/>
 				<FormControl
-					fullWidth
 					variant="outlined"
-					className={classes.formControl}
+					className={classes.field}
 					error={!!categoryError}
 				>
 					<InputLabel id="category-label">Product category</InputLabel>
@@ -330,9 +425,8 @@ export default function EditProduct() {
 					<FormHelperText>{categoryError}</FormHelperText>
 				</FormControl>
 				<FormControl
-					fullWidth
 					variant="outlined"
-					className={classes.formControl}
+					className={classes.field}
 					error={!!colorError}
 				>
 					<InputLabel id="color-label">Product colors</InputLabel>
@@ -370,6 +464,49 @@ export default function EditProduct() {
 					</Select>
 					<FormHelperText>{colorError}</FormHelperText>
 				</FormControl>
+				{images.map((item) => (
+					<div
+						className={classes.imgDiv}
+						onMouseEnter={() => visible(item.id)}
+						onMouseLeave={() => invisible(item.id)}
+					>
+						{item.isDefault && <p className={classes.default}>Default</p>}
+						<div className={classes.imgBtn} id={"img" + item.id}>
+							<Button
+								color="primary"
+								variant="outlined"
+								onClick={() => makeDefault(item.id)}
+							>
+								Make default
+							</Button>
+							<Button
+								color="secondary"
+								variant="outlined"
+								onClick={() => deleteImg(item.id)}
+							>
+								Delete
+							</Button>
+						</div>
+						<img
+							src={`http://localhost:8000/${item.name}`}
+							className={classes.img}
+							alt=""
+						/>
+					</div>
+				))}
+				<br /> <br />
+				<Button variant="contained" color="primary" component="label">
+					Add images
+					<input
+						value=""
+						type="file"
+						multiple
+						id="file"
+						hidden
+						onChange={addImage}
+					/>
+				</Button>
+				<label className={classes.imageError}>{imageError}</label>
 				<FormControlLabel
 					labelPlacement="start"
 					className={classes.publish}

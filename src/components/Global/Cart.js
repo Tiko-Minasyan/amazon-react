@@ -9,6 +9,7 @@ import Chip from "@material-ui/core/Chip";
 import { makeStyles } from "@material-ui/core";
 import productApi from "../../api/product.api";
 import { useHistory } from "react-router";
+import cartApi from "../../api/cart.api";
 
 const useStyles = makeStyles({
 	root: {
@@ -49,20 +50,24 @@ const useStyles = makeStyles({
 });
 
 export default function Cart({ cartNum, addCartNum }) {
+	const [cart, setCart] = React.useState([]);
 	const [products, setProducts] = React.useState([]);
 	const [newCount, setNewCount] = React.useState({});
 	const [totalCount, setTotalCount] = React.useState(0);
+	const [guest, setGuest] = React.useState(false);
+	const [imageRendered, setImageRendered] = React.useState(false);
 
 	const classes = useStyles();
 	const history = useHistory();
 
 	useEffect(() => {
+		setImageRendered(false);
 		if (!localStorage.token) {
 			let cart = JSON.parse(localStorage.getItem("guestCart"));
 			if (!cart) cart = [];
 			productApi.guestCart(cart).then((res) => {
 				let total = 0;
-				res.data.forEach((item, index) => {
+				res.data.forEach((item) => {
 					item.Colors = item.Colors.filter(
 						(color) => color.id === cart[item.id].color
 					);
@@ -70,11 +75,46 @@ export default function Cart({ cartNum, addCartNum }) {
 					total += item.price * item.count;
 				});
 
+				setGuest(true);
 				setProducts(res.data);
+				setTotalCount(total);
+			});
+		} else {
+			cartApi.getCart().then((res) => {
+				const cart = res.data;
+				const arr = [];
+				let total = 0;
+
+				for (let item of cart) {
+					arr.push(item.Product);
+					total += item.count * item.Product.price;
+				}
+
+				setCart(res.data);
+				setProducts(arr);
 				setTotalCount(total);
 			});
 		}
 	}, []);
+
+	useEffect(() => {
+		if (products.length === 0) return;
+		else if (!imageRendered) {
+			productApi.getDefaultImages().then((res) => {
+				const images = res.data;
+				const newProducts = [...products];
+				newProducts.forEach((product) => {
+					for (let image of images) {
+						if (product.id === image.ProductId) {
+							product["defaultImg"] = image.name;
+						}
+					}
+				});
+				setProducts(newProducts);
+				setImageRendered(true);
+			});
+		} // eslint-disable-next-line
+	}, [products]);
 
 	const setChipColor = (hex) => {
 		return {
@@ -82,13 +122,15 @@ export default function Cart({ cartNum, addCartNum }) {
 		};
 	};
 
-	const editCount = (id) => {
+	console.log(products);
+	const editCount = (id, index) => {
 		const newProducts = JSON.parse(JSON.stringify(products));
 		newProducts.forEach((item) => {
 			if (item.id === id) {
 				item.editCount = true;
 				const countObj = { ...newCount };
-				countObj[id] = item.count;
+				if (guest) countObj[id] = item.count;
+				else countObj[id] = cart[index].count;
 				setNewCount(countObj);
 			}
 		});
@@ -108,20 +150,30 @@ export default function Cart({ cartNum, addCartNum }) {
 		setNewCount(countObj);
 	};
 
-	const saveCount = (id) => {
+	const saveCount = (id, itemIndex) => {
 		const newProducts = [...products];
 		let count;
+		let countDiff;
 
 		newProducts.forEach((item, index) => {
 			if (item.id === id) {
 				item.editCount = false;
-				const countDiff = newCount[id] - item.count;
-				item.count = newCount[id];
+				countDiff = newCount[id] - (guest ? item.count : cart[itemIndex].count);
+				if (guest) item.count = newCount[id];
+				else cart[itemIndex].count = newCount[id];
+
 				count = parseInt(newCount[id]);
 
 				setTotalCount(totalCount + countDiff * item.price);
 
-				if (count === 0) newProducts.splice(index, 1);
+				if (count === 0) {
+					newProducts.splice(index, 1);
+					if (!guest) {
+						const newCart = JSON.parse(JSON.stringify(cart));
+						newCart.splice(index, 1);
+						setCart(newCart);
+					}
+				}
 				addCartNum(countDiff);
 			}
 		});
@@ -132,14 +184,28 @@ export default function Cart({ cartNum, addCartNum }) {
 			cart[id].count = count;
 			if (count === 0) delete cart[id];
 			localStorage.guestCart = JSON.stringify(cart);
+		} else {
+			if (count === 0) {
+				cartApi.removeItem(id);
+			} else {
+				cartApi.update(id, countDiff);
+			}
 		}
 	};
 
-	const remove = (id) => {
+	const remove = (id, index) => {
 		let newProducts = [...products];
-		newProducts = newProducts.filter((item) => {
+		newProducts = newProducts.filter((item, itemIndex) => {
 			if (item.id === id) {
-				setTotalCount(totalCount - item.count * item.price);
+				setTotalCount(
+					totalCount - (guest ? item.count : cart[index].count) * item.price
+				);
+
+				if (!guest) {
+					let newCart = JSON.parse(JSON.stringify(cart));
+					newCart.splice(itemIndex, 1);
+					setCart(newCart);
+				}
 				return false;
 			}
 
@@ -149,16 +215,21 @@ export default function Cart({ cartNum, addCartNum }) {
 		setProducts(newProducts);
 
 		if (!localStorage.token) {
-			let cart = JSON.parse(localStorage.getItem("guestCart"));
-			addCartNum(-cart[id].count);
-			delete cart[id];
-			localStorage.guestCart = JSON.stringify(cart);
+			let guestCart = JSON.parse(localStorage.getItem("guestCart"));
+			addCartNum(-guestCart[id].count);
+			delete guestCart[id];
+			localStorage.guestCart = JSON.stringify(guestCart);
+		} else {
+			addCartNum(-cart[index].count);
+			cartApi.removeItem(id);
 		}
 	};
 
 	const checkout = () => {
 		if (!localStorage.token) {
 			history.push("/login");
+		} else {
+			history.push("/checkout");
 		}
 	};
 
@@ -169,13 +240,20 @@ export default function Cart({ cartNum, addCartNum }) {
 				Subtotal ({cartNum} items): {totalCount} cents
 			</Typography>
 			<div>
-				{products.map((product) => (
-					<Card className={classes.root} key={product.id}>
+				{products.map((product, index) => (
+					<Card
+						className={classes.root}
+						key={guest ? product.id : cart[index].id}
+					>
 						<CardMedia
 							component="img"
 							alt="Product image could not be loaded"
 							height="200"
-							image="http://beepeers.com/assets/images/commerces/default-image.jpg"
+							image={
+								product.defaultImg
+									? `http://localhost:8000/${product.defaultImg}`
+									: "http://beepeers.com/assets/images/commerces/default-image.jpg"
+							}
 							className={classes.cardImg}
 						/>
 						<CardContent className={classes.cardContent}>
@@ -190,21 +268,30 @@ export default function Cart({ cartNum, addCartNum }) {
 							</Typography>
 							<Typography variant="caption" className={classes.chipContainer}>
 								{"Selected product color: "}
-								{product.Colors.map((value) => (
+								{guest ? (
+									product.Colors.map((value) => (
+										<Chip
+											key={value.id}
+											label={value.name}
+											style={setChipColor(value.hex)}
+											className={classes.chip}
+										/>
+									))
+								) : (
 									<Chip
-										key={value.id}
-										label={value.name}
-										style={setChipColor(value.hex)}
+										key={cart[index].Color.id}
+										label={cart[index].Color.name}
+										style={setChipColor(cart[index].Color.hex)}
 										className={classes.chip}
 									/>
-								))}
+								)}
 							</Typography>
 							<Typography variant="subtitle2" component="p">
-								Price in cents: {product.price * product.count} ({product.price}{" "}
-								each)
-							</Typography>
-							<Typography variant="body2">
-								Category: {product.Category.name}
+								Price in cents:{" "}
+								{guest
+									? product.price * product.count
+									: product.price * cart[index].count}{" "}
+								({product.price} each)
 							</Typography>
 							{product.editCount ? (
 								<Typography variant="body2" className={classes.countText}>
@@ -216,7 +303,9 @@ export default function Cart({ cartNum, addCartNum }) {
 									/>
 								</Typography>
 							) : (
-								<Typography variant="body2">Count: {product.count}</Typography>
+								<Typography variant="body2">
+									Count: {guest ? product.count : cart[index].count}
+								</Typography>
 							)}
 						</CardContent>
 						<CardActions className={classes.cardActions}>
@@ -224,7 +313,7 @@ export default function Cart({ cartNum, addCartNum }) {
 								<Button
 									size="small"
 									color="primary"
-									onClick={() => saveCount(product.id)}
+									onClick={() => saveCount(product.id, index)}
 								>
 									Save count
 								</Button>
@@ -232,7 +321,7 @@ export default function Cart({ cartNum, addCartNum }) {
 								<Button
 									size="small"
 									color="primary"
-									onClick={() => editCount(product.id)}
+									onClick={() => editCount(product.id, index)}
 								>
 									Edit count
 								</Button>
@@ -240,7 +329,7 @@ export default function Cart({ cartNum, addCartNum }) {
 							<Button
 								size="small"
 								color="secondary"
-								onClick={() => remove(product.id)}
+								onClick={() => remove(product.id, index)}
 							>
 								Remove from cart
 							</Button>
